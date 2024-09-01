@@ -53,7 +53,6 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
 ## AWS Deployment
 
 -   At Vi, we manage and provision cloud infrastructure through definition files ([IaC](https://en.wikipedia.org/wiki/Infrastructure_as_code)). Please use IaC (such as CloudFormation) to deploy the code you created to perform the below tasks.
-    -   If your not familiar with Cloudformation - please use AWS console
 -   Infrastructure tasks:
     -   Create a glue job
     -   Create a Glue Catalog Database
