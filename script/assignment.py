@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lag, avg, stddev, sqrt, sum as _sum, count, date_format, lit
+from pyspark.sql.functions import col, lag, avg, stddev, sum as _sum, count
 from pyspark.sql.window import Window
 
 # Initialize Spark Session
@@ -22,48 +22,28 @@ df = spark.read.csv(input_path, header=True, inferSchema=True)
 df = df.withColumn("close", col("close").cast("double")) \
        .withColumn("volume", col("volume").cast("double"))
 
-# Format the date to exclude time
-df = df.withColumn("date", date_format(col("date"), "yyyy-MM-dd"))
-
-# Objective 1: Compute Average Daily Return of All Stocks for Every Date
-window_spec = Window.partitionBy("ticker").orderBy("date")
-df = df.withColumn("prev_close", lag("close").over(window_spec))
-df = df.withColumn("daily_return", (col("close") - col("prev_close")) / col("prev_close"))
-
-daily_return_sum = df.groupBy("date").agg(
-    _sum("daily_return").alias("sum_daily_return"),
-    count("ticker").alias("stock_count")
-)
-
-avg_daily_return = daily_return_sum.withColumn(
-    "average_return", col("sum_daily_return") / col("stock_count")
-).select("date", "average_return")
-
-avg_daily_return.write.parquet(output_avg_return_path, mode="overwrite")
-
-# Objective 2: Stock with Highest Worth (Summed Worth / Number of Days)
+# Objective 2: Stock with Highest Worth (Only the Top Ticker and Avg Worth)
 df = df.withColumn("worth", col("close") * col("volume"))
 highest_worth = df.groupBy("ticker").agg(
     _sum("worth").alias("total_worth"),
     count("date").alias("days")
 ).withColumn("avg_worth", col("total_worth") / col("days"))
-highest_worth = highest_worth.select("ticker", "avg_worth").orderBy(col("avg_worth").desc())
+highest_worth = highest_worth.select("ticker", "avg_worth").orderBy(col("avg_worth").desc()).limit(1)
 highest_worth = highest_worth.withColumn("avg_worth", col("avg_worth").cast("decimal(20,3)"))
 highest_worth.write.parquet(output_highest_worth_path, mode="overwrite")
 
-# Objective 3: Most Volatile Stock by Annualized Standard Deviation
-volatility = df.groupBy("ticker").agg(stddev("daily_return").alias("daily_std_dev"))
-volatility = volatility.withColumn("annualized_std_dev", col("daily_std_dev") * sqrt(lit(252)))
-most_volatile = volatility.orderBy(col("annualized_std_dev").desc()).limit(1)
-most_volatile = most_volatile.withColumn("annualized_std_dev", col("annualized_std_dev").cast("decimal(20,3)"))
+# Objective 3: Most Volatile Stock (Ticker and Standard Deviation)
+volatility = df.groupBy("ticker").agg(stddev("daily_return").alias("standard_deviation"))
+most_volatile = volatility.select("ticker", "standard_deviation").orderBy(col("standard_deviation").desc()).limit(1)
 most_volatile.write.parquet(output_most_volatile_path, mode="overwrite")
 
-# Objective 4: Top Three 30-Day Return Dates
+# Objective 4: Top Three 30-Day Return Dates (Ticker and Date)
+window_spec = Window.partitionBy("ticker").orderBy("date")
 df = df.withColumn("price_30_days_ago", lag("close", 30).over(window_spec))
 df = df.withColumn("return_30_days", (col("close") - col("price_30_days_ago")) / col("price_30_days_ago"))
-df = df.withColumn("return_30_days", col("return_30_days").cast("decimal(20,3)"))
-top_30_day_returns = df.orderBy(col("return_30_days").desc()).select("ticker", "date", "return_30_days").limit(3)
+top_30_day_returns = df.orderBy(col("return_30_days").desc()).select("ticker", "date").limit(3)
 top_30_day_returns.write.parquet(output_top_30_day_returns_path, mode="overwrite")
 
 # Stop Spark Session
 spark.stop()
+
