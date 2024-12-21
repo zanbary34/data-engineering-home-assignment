@@ -16,7 +16,7 @@ GLUE_CRAWLER_NAME=sefi-assignment-crawler
  ```
 
 
-Note: Replace AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with the credentials you received via email.
+Note: Replace AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with the credentials you sent me via email.
 ## **Step 2: Create or Update Infrastructure**
  Run the `create-update-stack.sh` script to provision the necessary AWS resources:
    ```bash
