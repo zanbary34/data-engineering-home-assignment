@@ -22,6 +22,11 @@ df = spark.read.csv(input_path, header=True, inferSchema=True)
 df = df.withColumn("close", col("close").cast("double")) \
        .withColumn("volume", col("volume").cast("double"))
 
+# Add daily return column
+window_spec = Window.partitionBy("ticker").orderBy("date")
+df = df.withColumn("prev_close", lag("close").over(window_spec))
+df = df.withColumn("daily_return", (col("close") - col("prev_close")) / col("prev_close"))
+
 # Objective 2: Stock with Highest Worth (Only the Top Ticker and Avg Worth)
 df = df.withColumn("worth", col("close") * col("volume"))
 highest_worth = df.groupBy("ticker").agg(
