@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lag, avg, stddev, sum as _sum, count
+from pyspark.sql.functions import col, lag, avg, stddev, sum as _sum, count, date_format
 from pyspark.sql.window import Window
 
 # Initialize Spark Session
@@ -22,13 +22,18 @@ df = spark.read.csv(input_path, header=True, inferSchema=True)
 df = df.withColumn("close", col("close").cast("double")) \
        .withColumn("volume", col("volume").cast("double"))
 
+# Format date column to exclude time
+df = df.withColumn("date", date_format(col("date"), "yyyy-MM-dd"))
+
 # Add daily return column
 window_spec = Window.partitionBy("ticker").orderBy("date")
 df = df.withColumn("prev_close", lag("close").over(window_spec))
 df = df.withColumn("daily_return", (col("close") - col("prev_close")) / col("prev_close"))
 
 # Objective 1: Compute Average Daily Return of All Stocks for Every Date
-daily_avg_return = df.groupBy("date").agg(avg("daily_return").alias("average_return"))
+daily_avg_return = df.filter(col("prev_close").isNotNull()) \
+                   .groupBy("date") \
+                   .agg(avg("daily_return").alias("average_return"))
 daily_avg_return = daily_avg_return.select("date", "average_return").orderBy("date")
 daily_avg_return.write.parquet(output_avg_return_path, mode="overwrite")
 
