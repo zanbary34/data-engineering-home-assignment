@@ -47,7 +47,7 @@ highest_worth = df.groupBy("ticker").agg(
     _sum("worth").alias("total_worth"),
     count("date").alias("days")
 ).withColumn("avg_worth", col("total_worth") / col("days"))
-highest_worth = highest_worth.orderBy(col("avg_worth").desc()).limit(1)
+highest_worth = highest_worth.select("ticker", "avg_worth").orderBy(col("avg_worth").desc())
 highest_worth = highest_worth.withColumn("avg_worth", col("avg_worth").cast("decimal(20,3)"))
 highest_worth.write.parquet(output_highest_worth_path, mode="overwrite")
 
