@@ -73,7 +73,7 @@ fi
 
 echo "Waiting for Glue crawler to complete..."
 crawler_status="RUNNING"
-while [[ "$crawler_status" != "SUCCEEDED" && "$crawler_status" != "FAILED" ]]; do
+while [[ "$crawler_status" != "READY" && "$crawler_status" != "FAILED" ]]; do
   sleep 10
   crawler_status=$(aws glue get-crawler --name $GLUE_CRAWLER_NAME --region $AWS_REGION --query 'Crawler.State' --output text)
   echo "Current Glue crawler status: $crawler_status"
