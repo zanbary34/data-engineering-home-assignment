@@ -27,6 +27,11 @@ window_spec = Window.partitionBy("ticker").orderBy("date")
 df = df.withColumn("prev_close", lag("close").over(window_spec))
 df = df.withColumn("daily_return", (col("close") - col("prev_close")) / col("prev_close"))
 
+# Objective 1: Compute Average Daily Return of All Stocks for Every Date
+daily_avg_return = df.groupBy("date").agg(avg("daily_return").alias("average_return"))
+daily_avg_return = daily_avg_return.select("date", "average_return").orderBy("date")
+daily_avg_return.write.parquet(output_avg_return_path, mode="overwrite")
+
 # Objective 2: Stock with Highest Worth (Only the Top Ticker and Avg Worth)
 df = df.withColumn("worth", col("close") * col("volume"))
 highest_worth = df.groupBy("ticker").agg(
@@ -43,7 +48,6 @@ most_volatile = volatility.select("ticker", "standard_deviation").orderBy(col("s
 most_volatile.write.parquet(output_most_volatile_path, mode="overwrite")
 
 # Objective 4: Top Three 30-Day Return Dates (Ticker and Date)
-window_spec = Window.partitionBy("ticker").orderBy("date")
 df = df.withColumn("price_30_days_ago", lag("close", 30).over(window_spec))
 df = df.withColumn("return_30_days", (col("close") - col("price_30_days_ago")) / col("price_30_days_ago"))
 top_30_day_returns = df.orderBy(col("return_30_days").desc()).select("ticker", "date").limit(3)
