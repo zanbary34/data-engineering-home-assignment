@@ -5,8 +5,7 @@
 
 crate the .env file exists in the root directory. This file should contain the following configurations:
 
- ```bash
-  
+ ```bash 
 AWS_ACCESS_KEY_ID={secret}
 AWS_SECRET_ACCESS_KEY={secret}
 STACK_NAME=zanbary
