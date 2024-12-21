@@ -1,48 +1,191 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: CloudFormation template to create a Lambda function that prints "Hello, World!".
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: "The name of the S3 bucket"
 
 Resources:
-    LambdaExecutionRole:
-        Type: "AWS::IAM::Role"
-        Properties:
-            AssumeRolePolicyDocument:
-                Version: "2012-10-17"
-                Statement:
-                    - Effect: "Allow"
-                      Principal:
-                          Service:
-                              - "lambda.amazonaws.com"
-                      Action: "sts:AssumeRole"
-            Policies:
-                - PolicyName: "LambdaExecutionPolicy"
-                  PolicyDocument:
-                      Version: "2012-10-17"
-                      Statement:
-                          - Effect: "Allow"
-                            Action:
-                                - "logs:CreateLogGroup"
-                                - "logs:CreateLogStream"
-                                - "logs:PutLogEvents"
-                            Resource: "arn:aws:logs:*:*:*"
 
-    HelloWorldLambda:
-        Type: "AWS::Lambda::Function"
-        Properties:
-            FunctionName: "HelloWorldFunction"
-            Handler: "index.handler"
-            Role: !GetAtt LambdaExecutionRole.Arn
-            Runtime: "python3.9"
-            Code:
-                ZipFile: |
-                    def handler(event, context):
-                        print("Hello, World!")
-            Timeout: 30
-            MemorySize: 128
+  DataEngineerBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+
+  GlueJobRole:
+    Type: AWS::IAM::Role
+    DependsOn:
+      - DataEngineerBucket
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: GlueJobPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: 
+                  - !Sub "arn:aws:s3:::${S3BucketName}"
+                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
+              - Effect: Allow
+                Action:
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:CreateDatabase
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:BatchGetPartition
+                  - glue:GetPartition
+                  - glue:BatchCreatePartition
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref "AWS::AccountId"
+      DatabaseInput:
+        Name: "sefi-data_engineer_assignment_db"
+
+  GlueCrawler:
+      Type: AWS::Glue::Crawler
+      DependsOn:
+        - GlueDatabase
+      Properties:
+        Name: "sefi-assignment-crawler"
+        Role: !GetAtt GlueJobRole.Arn
+        DatabaseName: !Ref GlueDatabase
+        Targets:
+          S3Targets:
+            - Path: !Sub "s3://${S3BucketName}/output/average_daily_return/"
+            - Path: !Sub "s3://${S3BucketName}/output/highest_worth/"
+            - Path: !Sub "s3://${S3BucketName}/output/most_volatile/"
+            - Path: !Sub "s3://${S3BucketName}/output/top_30_day_returns/"
+        TablePrefix: "processed_"
+        SchemaChangePolicy:
+          UpdateBehavior: "UPDATE_IN_DATABASE"
+          DeleteBehavior: "LOG"
+
+  GlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: "sefi-data-engineer-assignment-job"
+      Role: !GetAtt GlueJobRole.Arn
+      Command:
+        Name: "glueetl"
+        ScriptLocation: !Sub "s3://${S3BucketName}/scripts/assignment.py"
+        PythonVersion: "3"
+      DefaultArguments:
+        "--TempDir": !Sub "s3://${S3BucketName}/temp/"
+        "--job-language": "python"
+
+  AverageDailyReturnTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref "AWS::AccountId"  
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: "processed_average_daily_return"
+        StorageDescriptor:
+          Columns:
+            - Name: "date"
+              Type: "string"
+            - Name: "average_return"
+              Type: "double"
+          Location: !Sub "s3://${S3BucketName}/output/average_daily_return/"
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+
+  HighestWorthTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref "AWS::AccountId" 
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: "processed_highest_worth"
+        StorageDescriptor:
+          Columns:
+            - Name: "ticker"
+              Type: "string"
+            - Name: "avg_worth"
+              Type: "double"
+          Location: !Sub "s3://${S3BucketName}/output/highest_worth/"
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+
+  MostVolatileTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref "AWS::AccountId" 
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: "processed_most_volatile"
+        StorageDescriptor:
+          Columns:
+            - Name: "ticker"
+              Type: "string"
+            - Name: "std_dev"
+              Type: "double"
+          Location: !Sub "s3://${S3BucketName}/output/most_volatile/"
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+
+  Top30DayReturnsTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref "AWS::AccountId" 
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: "processed_top_30_day_returns"
+        StorageDescriptor:
+          Columns:
+            - Name: "ticker"
+              Type: "string"
+            - Name: "date"
+              Type: "string"
+            - Name: "return_30_days"
+              Type: "double"
+          Location: !Sub "s3://${S3BucketName}/output/top_30_day_returns/"
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+
 
 Outputs:
-    LambdaFunctionName:
-        Description: "Name of the Lambda function created"
-        Value: !Ref HelloWorldLambda
-    LambdaExecutionRoleArn:
-        Description: "ARN of the Lambda execution role"
-        Value: !GetAtt LambdaExecutionRole.Arn
+  DataEngineerBucketName:
+    Description: "S3 bucket for all resources."
+    Value: !Ref DataEngineerBucket
+
+  GlueDatabaseName:
+    Description: "Glue Database Name."
+    Value: !Ref GlueDatabase
+
+  GlueCrawlerName:
+    Description: "Glue Crawler Name."
+    Value: !Ref GlueCrawler
+
+  GlueJobName:
+    Description: "Glue Job Name."
+    Value: !Ref GlueJob

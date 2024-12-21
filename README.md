@@ -1,80 +1,63 @@
-# Data Engineering Assignment (PySpark)
+# How to Run the Data Engineering Solution
 
-Before starting to work on the assignment - please make sure you fork this repository.
 
-## Requirements:
+## **Step 1: Clone the Repository**
 
-This is an assignment for a Data Engineer role. You are requested to:
+## **Step 2: Create or Update Infrastructure**
+ Run the `create-update-stack.sh` script to provision the necessary AWS resources:
+   ```bash
+   bash create-update-stack.sh
+   ```
+   **What This Does:**
+   - Creates or updates an S3 bucket for storing input and output files.
+   - Configures the AWS Glue job to process the stock data.
+   - Create Data table catalog
+   - Sets up the Glue crawler to update the Glue Data Catalog.
 
--   Read and understand the requirements. You may contact the interviewer for further clarification
--   Write code that answers the objectives
--   Deploy the code to the provided AWS account
 
-You are a Data Engineer in a financial institute. Your task is to calculate and answer the business questions (objectives) provided by the analysts team. You’re provided here with a small dataset, but in a real-world scenario you'll have a huge dataset, so the code needs to be deployed and run on a cloud environenment.
 
-## Coding instructions:
+## **Step 3: Upload Files and Run the Glue Job**
+ Execute the `upload-and-run.sh` script to upload the files and start the Glue job:
+   ```bash
+   bash upload-and-run.sh
+   ```
+   **What This Does:**
+   - Uploads the `assignment.py` script and `stocks_data.csv` dataset to the S3 bucket.
+   - Starts the Glue job, which:
+     - Processes the data and calculates the required metrics.
+     - Saves the output to the S3 bucket in the following directories:
+       - `output/average_daily_return/`
+       - `output/highest_worth/`
+       - `output/most_volatile/`
+       - `output/top_30_day_returns/`
+   - Triggers the Glue crawler to update the Data Catalog with the processed results.
 
--   The file `stocks_data.csv` contains daily closing price of a few stocks on the NYSE/NASDAQ
--   Load the file as a DataFrame, Dataset, or RDD and complete the assignment objectives
--   The result of each question should be saved as a separate file in an S3 Bucket
+---
 
-## Assumptions:
+## **Step 4: Query Results**
+1. Use AWS Glue Data Catalog and Athena to query the processed data.
 
--   Use only the closing price to determine returns
--   If a price is missing on a given date, you can compute returns from the closest available date
--   Return can be trivially computed as the % difference of two prices
+2. Example queries:
+   - **Check average daily return for a specific date:**
+     ```sql
+     SELECT * FROM "sefi-data_engineer_assignment_db"."processed_average_daily_return" WHERE date = '2022-06-17';
+     ```
+   - **Find the most volatile stock:**
+     ```sql
+     SELECT * FROM "sefi-data_engineer_assignment_db"."processed_most_volatile_stock";
+     ```
 
-## Objectives:
+3. Results are queryable directly in Athena or any other tool integrated with the Glue Data Catalog.
 
-1. Compute the average daily return of all stocks for every date
+---
 
-    | date       | average_return                    |
-    | ---------- | --------------------------------- |
-    | yyyy-MM-dd | return of all stocks on that date |
+## **Outcome**
+- The solution processes stock data to calculate:
+  - Average daily returns.
+  - Highest worth stock.
+  - Most volatile stock.
+  - Top 30-day return dates.
+- Results are stored in S3 and are queryable via Athena.
 
-2. Which stock was traded with the highest worth - as measured by **closing price \* volume** - on average?
+This setup ensures scalability, automation, and ease of use in a cloud environment.
 
-    | ticker | value |
-    | ------ | ----- |
-    |        |       |
-
-3. Which stock was the most volatile as measured by the annualized standard deviation of daily returns?
-
-    | ticker | standard_deviation |
-    | ------ | ------------------ |
-    |        |                    |
-
-4. What were the top three 30-day return dates as measured by % increase in closing price compared to the closing price 30 days prior? present the top three ticker and date combinations.
-
-    | ticker | date |
-    | ------ | ---- |
-    |        |      |
-
-## AWS Deployment
-
--   At Vi, we manage and provision cloud infrastructure through definition files ([IaC](https://en.wikipedia.org/wiki/Infrastructure_as_code)). Please use IaC (such as CloudFormation) to deploy the code you created to perform the below tasks.
--   Infrastructure tasks:
-    -   Create a glue job
-    -   Create a Glue Catalog Database
-    -   Create a Glue Catalog Table for each result file
-    -   Create crawler/s
--   **Expected result: Questions (objectives) results should be queryable from Athena**
--   If you encounter issues with reading/writing from/to S3 buckets, it is recommended to add your name as a prefix to the bucket’s name. For example name the bucket: “data-engineer-assignment-my-name”
--   Use the AWS credentials provided in the email to deploy the code. **DO NOT COMMIT THEM IN THE CODE.**
--   Deploy your resources in the **Europe (Frankfurt) eu-central-1**
--   Create a local `.env` file with the following environment variables
-    -   AWS_ACCESS_KEY_ID
-    -   AWS_SECRET_ACCESS_KEY
-    -   STACK_NAME
--   Use the `create-update-stack.sh` in the repo to to deploy your stack file. A demo stack file is provided in the repo
-
-## Submission
-
-Please share your Github repo by replying to the email.
-Write us any assumptions you made or additional information you think is relevant.
-
-## Evaluation
-
--   Objectives completion
--   Code quality & efficiency
--   AWS deployment
