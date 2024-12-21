@@ -3,6 +3,17 @@
 
 ## **Step 1: Clone the Repository**
 
+crate the .env file exists in the root directory. This file should contain the following configurations:
+
+AWS_ACCESS_KEY_ID=**secret**
+AWS_SECRET_ACCESS_KEY=**secret**
+STACK_NAME=zanbary
+AWS_REGION=eu-central-1
+S3_BUCKET_NAME=sefi-data-engineer-assignment
+GLUE_JOB_NAME=sefi-data-engineer-assignment-job
+GLUE_CRAWLER_NAME=sefi-assignment-crawler
+
+Note: Replace AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with the credentials you received via email.
 ## **Step 2: Create or Update Infrastructure**
  Run the `create-update-stack.sh` script to provision the necessary AWS resources:
    ```bash
