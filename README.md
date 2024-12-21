@@ -5,10 +5,10 @@
 
 crate the .env file exists in the root directory. This file should contain the following configurations:
 
-AWS_ACCESS_KEY_ID=**secret**
-AWS_SECRET_ACCESS_KEY=**secret**
+AWS_ACCESS_KEY_ID={secret}
+AWS_SECRET_ACCESS_KEY={secret}
 STACK_NAME=zanbary
-AWS_REGION=eu-central-1
+AWS_REGION=eu-central-1s
 S3_BUCKET_NAME=sefi-data-engineer-assignment
 GLUE_JOB_NAME=sefi-data-engineer-assignment-job
 GLUE_CRAWLER_NAME=sefi-assignment-crawler
